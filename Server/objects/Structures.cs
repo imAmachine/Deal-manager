@@ -2,6 +2,9 @@
 
 namespace Server
 {
+    /// <summary>
+    /// Состав сделки
+    /// </summary>
     [Serializable]
     public class Structures
     {
@@ -14,6 +17,10 @@ namespace Server
             IdProduct = idProduct;
             IdDeal = idDeal;
             Count = count;
+        }
+
+        public Structures()
+        {
         }
     }
 }

@@ -16,139 +16,147 @@ namespace Server
     /// </summary>
     public partial class MainWindow : Window
     {
+        //  Кодировка приложения
+        private Encoding defaultEncode = Encoding.UTF8;
+
+        private int port = 9009;
+        private TcpListener server = null;
+
+        private List<TcpClient> clients = new List<TcpClient>();    //  Список подключенных клиентов
+        private Task[] tasks = new Task[2]; //  Массив хранения серверных задач
+        private CancellationTokenSource cts = null;    //  Токен отмены работы задач чтения и прослушивания подключений
+
         public MainWindow()
         {
             InitializeComponent();
-        }
 
-        Encoding defaultEncode = Encoding.UTF8;
-        int port = 9009;
-        TcpListener server = null;
-        List<TcpClient> clients = new List<TcpClient>();
-
-        private void btn_start_Click(object sender, RoutedEventArgs e)
-        {
+            //  Инициализация сервера
             IPAddress ip = Dns.GetHostEntry(Dns.GetHostName()).AddressList[1];
             IPAddress localIP = IPAddress.Parse(ip.ToString());
 
             server = new TcpListener(localIP, port);
-            server.Start();
-
-            ServerStart();
-
-            ServerRead();
+            cts = new CancellationTokenSource();
         }
 
-        private async void ServerRead()
+        private void BtnStartClick(object sender, RoutedEventArgs e)
         {
-            await Task.Run(() =>
-            {
-                while (true)
-                {
-                    if (clients.Count > 0)
-                    {
-                        clients.AsParallel().ForAll(el =>
-                        {
-                            NetworkStream ns = el.GetStream();
+            //  Токен для завершения серверных задач
+            cts = new CancellationTokenSource();
 
-                            if (ns != null)
-                            {
-                                if (ns.DataAvailable)
-                                {
-                                    StringBuilder resultMessage = new StringBuilder();
-                                    byte[] buff = null;
-                                    while (ns.DataAvailable && ns.CanRead)
-                                    {
-                                        buff = new byte[64];
-                                        ns.Read(buff, 0, buff.Length);
-                                        resultMessage.AppendFormat("{0}", defaultEncode.GetString(buff));
-                                    }
-                                    string msg_str = resultMessage.ToString();
-                                    Dispatcher.Invoke((ThreadStart)delegate { tb_log.Text += msg_str; });
-                                    ServerSend(msg_str);
-                                }
-                            }
-                            else
-                            {
-                                MessageBox.Show("Test");
-                                el.Dispose();
-                                clients.Remove(el);
-                            }
-                        });
-                    }
-                    Thread.Sleep(1);
+            //  Старт прослушивания порта
+            server.Start();
+
+            //  Запуск потоков сервера
+            tasks[0] = Task.Factory.StartNew(ServerStart, cts.Token);
+            tasks[1] = Task.Factory.StartNew(ServerRead, cts.Token);
+        }
+
+        private void ServerRead()
+        {
+            while (true)
+            {
+                //  В случае, если поступил запрос на остановку задачи, выполнить выход из задачи
+                if (cts.Token.IsCancellationRequested)
+                {
+                    Dispatcher.Invoke((ThreadStart)delegate { tb_log.Text += "\nОтключение прослушивания новых сообщений от клиентов..."; });
+                    return;
                 }
-            });
+
+                if (clients.Count > 0)
+                {
+                    clients.AsParallel().ForAll(el =>
+                    {
+                        NetworkStream ns = el.GetStream();
+
+                        if (ns.DataAvailable)
+                        {
+                            StringBuilder resultMessage = new StringBuilder();
+                            byte[] buff = null;
+                            while (ns.DataAvailable && ns.CanRead)
+                            {
+                                buff = new byte[64];
+                                ns.Read(buff, 0, buff.Length);
+                                resultMessage.AppendFormat("{0}", defaultEncode.GetString(buff));
+                            }
+                            string msg_str = resultMessage.ToString();
+                            Dispatcher.Invoke((ThreadStart)delegate { tb_log.Text += msg_str; });
+                            ServerSend(msg_str);
+                        }
+                    });
+                }
+                Thread.Sleep(10);
+            }
         }
 
         /// <summary>
         /// Отправляет сообщение с сервера
         /// </summary>
         /// <param name="msg">Сообщение, которое передаётся</param>
-        private async void ServerSend(string msg)
+        private void ServerSend(string msg)
         {
-            await Task.Run(() =>
+            if (clients.Count > 0)
             {
-                if (clients.Count > 0)
+                byte[] buff = defaultEncode.GetBytes(msg);
+                clients.AsParallel().ForAll(el =>
                 {
-                    byte[] buff = defaultEncode.GetBytes(msg);
-                    clients.AsParallel().ForAll(el =>
-                    {
-                        NetworkStream ns = el.GetStream();
-                        ns.Write(buff, 0, buff.Length);
-                    });
-                }
-            });
+                    NetworkStream ns = el.GetStream();
+                    ns.Write(buff, 0, buff.Length);
+                });
+            }
         }
 
 
         /// <summary>
         /// Запускает сервер и прослушивает сокет на подключение
         /// </summary>
-        private async void ServerStart()
+        private void ServerStart()
         {
-            await Task.Run(() =>
+            Dispatcher.Invoke((ThreadStart)delegate { tb_log.Text = "Сервер запущен. Ожидание подключений..."; });
+            while (true)
             {
-                Dispatcher.Invoke((ThreadStart)delegate { tb_log.Text = "Сервер запущен. Ожидание подключений...\n"; });
-                while (true)
+                //  В случае, если поступил запрос на остановку задачи, выполнить выход из задачи
+                if (cts.Token.IsCancellationRequested)
                 {
-                    //Ожидание нового клиента
-                    if (server.Pending())
-                    {
-                        //Добавление нового клиента
-                        TcpClient client = server.AcceptTcpClient();
-                        clients.Add(client);
-                        this.Dispatcher.Invoke((ThreadStart)delegate { tb_log.Text = "Подключен клиент. Выполнение запроса...\n"; });
-                        Dispatcher.Invoke((ThreadStart)delegate { lb_users.Items.Add(client.Client.RemoteEndPoint.ToString()); });
-
-                        //Получение потока данных получаемых от клиента
-                        NetworkStream stream = client.GetStream();
-
-                        //Генерация строки для клиента
-                        string response = DataSender();
-                        byte[] data = defaultEncode.GetBytes(response);
-
-                        //Отправляет данные по потоку на клиент
-                        stream.Write(data, 0, data.Length);
-                    }
-                    Thread.Sleep(1);
+                    Dispatcher.Invoke((ThreadStart)delegate { tb_log.Text += "\nОтключение прослушивания подключений..."; });
+                    return;
                 }
-            });
+
+                //Ожидание нового клиента
+                if (server.Pending())
+                {
+                    //Добавление нового клиента
+                    TcpClient client = server.AcceptTcpClient();
+                    clients.Add(client);
+
+                    Dispatcher.Invoke((ThreadStart)delegate { tb_log.Text += "\nПодключен клиент. Выполнение запроса..."; });
+                    Dispatcher.Invoke((ThreadStart)delegate { lb_users.Items.Add(client.Client.RemoteEndPoint.ToString()); });
+
+                    //Получение потока данных получаемых от клиента
+                    NetworkStream stream = client.GetStream();
+
+                    //Генерация строки для клиента
+                    string response = GetXml("products.xml");
+                    byte[] data = defaultEncode.GetBytes(response);
+
+                    //Отправляет данные по потоку на клиент
+                    stream.Write(data, 0, data.Length);
+                }
+                Thread.Sleep(10);
+            }
         }
 
-        private string DataSender()
+        private string GetXml(string file)
         {
-            List<Product> products = new List<Product>();
-            using (StreamReader sr = new StreamReader($@"{AppDomain.CurrentDomain.BaseDirectory}/products.xml"))
+            using (StreamReader sr = new StreamReader($@"{AppDomain.CurrentDomain.BaseDirectory}/xmls/{file}"))
             {
                 return sr.ReadToEnd();
             }
         }
 
-        private void Button_Click(object sender, RoutedEventArgs e)
+        private void BtnStopClick(object sender, RoutedEventArgs e)
         {
-            
-            
+            cts.Cancel();
+            server.Stop();
         }
     }
 }

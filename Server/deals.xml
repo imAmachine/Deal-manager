@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<Deals>
+    <Deal>
+        <IdDeal>1</IdDeal>
+        <Sum>55</Sum>
+        <Stage>Ожидается оплата</Stage>
+    </Deal>
+</Deals>

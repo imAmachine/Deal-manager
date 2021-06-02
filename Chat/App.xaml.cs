@@ -19,7 +19,7 @@ namespace Chat
         static void Main()
         {
             App app = new App();
-            StreamResourceInfo sri = GetResourceStream(new Uri("userData.xml", UriKind.Relative));
+            StreamResourceInfo sri = GetResourceStream(new Uri("xmls/userData.xml", UriKind.Relative));
 
             XmlDocument xDoc = new XmlDocument();
             xDoc.Load(sri.Stream);

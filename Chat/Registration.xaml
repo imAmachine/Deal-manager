@@ -20,7 +20,7 @@
             <RowDefinition Height="2*"></RowDefinition>
         </Grid.RowDefinitions>
 
-        <Button x:Name="btnRegistration" Grid.Column="1" Grid.Row="1" Content="Регистрация"/>
+        <Button x:Name="btnRegistration" Grid.Column="1" Grid.Row="1" Content="Регистрация" Click="btnRegistration_Click"/>
         <Button x:Name="btnLogin" Grid.Column="1" Grid.Row="3" Content="Вход"/>
     </Grid>
 </Window>

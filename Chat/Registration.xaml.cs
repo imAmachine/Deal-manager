@@ -23,5 +23,10 @@ namespace Chat
         {
             InitializeComponent();
         }
+
+        private void btnRegistration_Click(object sender, RoutedEventArgs e)
+        {
+
+        }
     }
 }

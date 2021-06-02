@@ -1,17 +1,17 @@
 <Products>
-    <Product>
-        <IdProduct>1</IdProduct>
-        <Name>Хлеб</Name>
-        <Price>37</Price>
-    </Product>
-    <Product>
-        <IdProduct>2</IdProduct>
-        <Name>Молоко</Name>
-        <Price>45</Price>
-    </Product>
-    <Product>
-        <IdProduct>3</IdProduct>
-        <Name>Чай</Name>
-        <Price>150</Price>
-    </Product>
+  <Product>
+    <IdProduct>1</IdProduct>
+    <Name>Хлеб</Name>
+    <Price>37</Price>
+  </Product>
+  <Product>
+    <IdProduct>2</IdProduct>
+    <Name>Молоко</Name>
+    <Price>45</Price>
+  </Product>
+  <Product>
+      <IdProduct>3</IdProduct>
+      <Name>Чай</Name>
+      <Price>150</Price>
+   </Product>
 </Products>

@@ -22,30 +22,42 @@ namespace Chat
         }
 
         TcpClient client = null;
+        CancellationTokenSource cts = new CancellationTokenSource();
         string msg = null;
 
-        private async void MainWindow1_Loaded(object sender, RoutedEventArgs e)
+        private void MainWindow1_Loaded(object sender, RoutedEventArgs e)
         {
             client = DAL.Connect(Dns.GetHostEntry(Dns.GetHostName()).AddressList[1]);
             if (client.Connected)
-                await Task.Run(() => {
-                    do
-                    {
-                        msg = DAL.Read_msg(client);
-                        if (msg != null)
-                        {
-                            List<Product> products = DW.Deserialize(msg, "Products");
-                            msg = null;
-                            Dispatcher.Invoke(() => productsViewSource.Source = products);
-                        }
-                        Thread.Sleep(1);
-                    } while (true);
-                });
+            {
+                var readTask = Task.Factory.StartNew(WaitProducts, cts.Token);
+                productsViewSource.Source = readTask.Result;
+            }
+            
+        }
+
+        private List<Product> WaitProducts()
+        {
+            do
+            {
+                if (cts.Token.IsCancellationRequested)
+                    return null;
+
+                msg = DAL.Read_msg(client);
+
+                if (msg != null)
+                {
+                    List<Product> products = (List<Product>)DW.DeserializeFromText<Product>(msg);
+                    return products;
+                }
+                Thread.Sleep(10);
+            } while (true);
         }
 
         private void MainWindow1_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-
+            cts.Cancel();
+            client.Close();
         }
 
         private void Buy_Click(object sender, RoutedEventArgs e)

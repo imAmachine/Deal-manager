@@ -33,7 +33,6 @@ namespace Chat
                 var readTask = Task.Factory.StartNew(WaitProducts, cts.Token);
                 productsViewSource.Source = readTask.Result;
             }
-            
         }
 
         private List<Product> WaitProducts()

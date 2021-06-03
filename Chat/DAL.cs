@@ -40,7 +40,7 @@ namespace Chat
             return null;
         }
 
-        private static async void Send_Msg(TcpClient client, string message)
+        public static async void Send_Msg(TcpClient client, string message)
         {
             await Task.Run(() =>
             {

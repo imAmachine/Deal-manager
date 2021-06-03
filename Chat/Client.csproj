@@ -114,10 +114,14 @@
     <Resource Include="xmls\userData.xml" />
   </ItemGroup>
   <ItemGroup>
-    <Resource Include="xmls\Registration.xml" />
+    <Content Include="xmls\Registration.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
-    <Resource Include="xmls\Login.xml" />
+    <Content Include="xmls\Login.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <Resource Include="xmls\Buy.xml" />

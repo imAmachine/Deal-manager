@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Net.Sockets;
 
 namespace Server
 {
@@ -13,7 +14,7 @@ namespace Server
         {
         }
 
-        public Client(int idClient, string login, string password)
+        public Client(TcpClient client, int idClient, string login, string password)
         {
             IdClient = idClient;
             Login = login;

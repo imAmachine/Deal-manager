@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Xml;
 
 namespace Server
 {
@@ -22,9 +23,11 @@ namespace Server
         private int port = 9009;
         private TcpListener server = null;
 
-        private List<TcpClient> clients = new List<TcpClient>();    //  Список подключенных клиентов
         private Task[] tasks = new Task[2]; //  Массив хранения серверных задач
         private CancellationTokenSource cts = null;    //  Токен отмены работы задач чтения и прослушивания подключений
+
+        List<User> usersQueue = new List<User>();
+        int i = 1;
 
         public MainWindow()
         {
@@ -62,15 +65,16 @@ namespace Server
                     return;
                 }
 
-                if (clients.Count > 0)
+                if (usersQueue.Count > 0)
                 {
-                    clients.AsParallel().ForAll(el =>
+                    usersQueue.AsParallel().ForAll(el =>
                     {
-                        NetworkStream ns = el.GetStream();
-
+                        NetworkStream ns = el.client.GetStream();
+                        StringBuilder resultMessage = new StringBuilder();
+                        string msg_str = string.Empty;
                         if (ns.DataAvailable)
                         {
-                            StringBuilder resultMessage = new StringBuilder();
+                            
                             byte[] buff = null;
                             while (ns.DataAvailable && ns.CanRead)
                             {
@@ -78,9 +82,47 @@ namespace Server
                                 ns.Read(buff, 0, buff.Length);
                                 resultMessage.AppendFormat("{0}", defaultEncode.GetString(buff));
                             }
-                            string msg_str = resultMessage.ToString();
+                            msg_str = resultMessage.ToString();
                             Dispatcher.Invoke((ThreadStart)delegate { tb_log.Text += msg_str; });
-                            ServerSend(msg_str);
+
+                            
+                            if (el.Auth)
+                            {
+                                /*
+                                 Отправка авторизованному юзеру список продуктов
+                                 */
+
+                                //Получение потока данных получаемых от клиента
+                                NetworkStream stream = el.client.GetStream();
+
+                                //Генерация строки для клиента
+                                string response = GetXml("products.xml");
+                                byte[] data = defaultEncode.GetBytes(response);
+
+                                //Отправляет данные по потоку на клиент
+                                stream.Write(data, 0, data.Length);
+
+                                ServerSend(msg_str, el);
+                            }
+                            else
+                            {
+                                /*
+                                 Проверка на сууществование юзера в базе
+                                 */
+                                XmlDocument xDoc = new XmlDocument();
+                                xDoc.LoadXml(resultMessage.ToString());
+                                XmlElement root = xDoc.DocumentElement;
+
+                                string login = root.ChildNodes[0].Value;
+                                string password = root.ChildNodes[1].Value;
+
+                                List<Client> clients = (List<Client>)DW.Deserialize<Client>($@"{AppDomain.CurrentDomain.BaseDirectory}/xmls/clients.xml");
+                                if (clients.Where(cl => cl.Login == login && cl.Password == password).Count() > 0)
+                                {
+                                    el.Auth = true;
+                                }
+
+                            }
                         }
                     });
                 }
@@ -92,19 +134,12 @@ namespace Server
         /// Отправляет сообщение с сервера
         /// </summary>
         /// <param name="msg">Сообщение, которое передаётся</param>
-        private void ServerSend(string msg)
+        private void ServerSend(string msg, User user)
         {
-            if (clients.Count > 0)
-            {
-                byte[] buff = defaultEncode.GetBytes(msg);
-                clients.AsParallel().ForAll(el =>
-                {
-                    NetworkStream ns = el.GetStream();
-                    ns.Write(buff, 0, buff.Length);
-                });
-            }
+            byte[] buff = defaultEncode.GetBytes(msg);
+            NetworkStream ns = user.client.GetStream();
+            ns.Write(buff, 0, buff.Length);
         }
-
 
         /// <summary>
         /// Запускает сервер и прослушивает сокет на подключение
@@ -126,20 +161,11 @@ namespace Server
                 {
                     //Добавление нового клиента
                     TcpClient client = server.AcceptTcpClient();
-                    clients.Add(client);
+                    usersQueue.Add(new User(false, i, client));
+                    ++i;
 
-                    Dispatcher.Invoke((ThreadStart)delegate { tb_log.Text += "\nПодключен клиент. Выполнение запроса..."; });
+                    Dispatcher.Invoke((ThreadStart)delegate { tb_log.Text += $"\nПодключен клиент ({client.Client.RemoteEndPoint.ToString()}). Выполнение запроса..."; });
                     Dispatcher.Invoke((ThreadStart)delegate { lb_users.Items.Add(client.Client.RemoteEndPoint.ToString()); });
-
-                    //Получение потока данных получаемых от клиента
-                    NetworkStream stream = client.GetStream();
-
-                    //Генерация строки для клиента
-                    string response = GetXml("products.xml");
-                    byte[] data = defaultEncode.GetBytes(response);
-
-                    //Отправляет данные по потоку на клиент
-                    stream.Write(data, 0, data.Length);
                 }
                 Thread.Sleep(10);
             }

@@ -108,7 +108,7 @@ namespace Server
                             {
                                 /*
                                  Проверка на сууществование юзера в базе
-                                */
+                                 */
                                 XmlDocument xDoc = new XmlDocument();
                                 xDoc.LoadXml(resultMessage.ToString());
                                 XmlElement root = xDoc.DocumentElement;

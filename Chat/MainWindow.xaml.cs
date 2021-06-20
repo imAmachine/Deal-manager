@@ -27,7 +27,7 @@ namespace Chat
 
         private void MainWindow1_Loaded(object sender, RoutedEventArgs e)
         {
-            client = DAL.Connect(Dns.GetHostEntry(Dns.GetHostName()).AddressList[1]);
+            client = DAL.Connect(IPAddress.Loopback);
             if (client.Connected)
             {
                 var readTask = Task.Factory.StartNew(WaitProducts, cts.Token);

@@ -17,5 +17,13 @@ namespace Server
             XmlReader xr = xDoc.CreateReader();
             return xmlSerializer.Deserialize(xr);
         }
+
+        public static string GetXml(string file)
+        {
+            using (StreamReader sr = new StreamReader($@"{AppDomain.CurrentDomain.BaseDirectory}/xmls/{file}"))
+            {
+                return sr.ReadToEnd();
+            }
+        }
     }
 }
